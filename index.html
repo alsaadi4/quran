@@ -17,6 +17,7 @@
             background: linear-gradient(135deg, #0d1b2a 0%, #1b3a4b 50%, #0d1b2a 100%);
             min-height: 100vh;
             color: #e0e1dd;
+            padding-bottom: 180px;
         }
 
         .container {
@@ -107,6 +108,11 @@
         .surah-card.active {
             background: rgba(233,196,106,0.15);
             border-color: #e9c46a;
+        }
+
+        .surah-card.error {
+            border-color: rgba(231, 111, 81, 0.5);
+            opacity: 0.7;
         }
 
         .surah-info {
@@ -231,9 +237,25 @@
             color: #e0e1dd;
         }
 
+        .error-msg {
+            text-align: center;
+            color: #e76f51;
+            font-size: 0.85rem;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .loading {
+            text-align: center;
+            color: #e9c46a;
+            font-size: 0.9rem;
+            margin-top: 10px;
+            display: none;
+        }
+
         .footer-note {
             text-align: center;
-            padding: 100px 20px 40px;
+            padding: 40px 20px;
             color: rgba(255,255,255,0.3);
             font-size: 0.85rem;
         }
@@ -268,7 +290,7 @@
 
         <div class="footer-note">
             <p>صدقة جارية — لله وحده 🌙</p>
-            <p style="margin-top:8px">الصوت من مصدر: <a href="https://everyayah.com" target="_blank">everyayah.com</a></p>
+            <p style="margin-top:8px">الصوت من مصدر: <a href="https://mp3quran.net" target="_blank">mp3quran.net</a></p>
         </div>
     </div>
 
@@ -278,15 +300,17 @@
                 <h3 id="nowPlayingTitle">اختر سورة للاستماع</h3>
                 <p id="nowPlayingMeta"></p>
             </div>
-            <audio class="audio-player" id="audioPlayer" controls></audio>
+            <audio class="audio-player" id="audioPlayer" controls preload="none"></audio>
+            <div class="loading" id="loadingMsg">⏳ جاري تحميل السورة...</div>
+            <div class="error-msg" id="errorMsg">⚠️ تعذر تحميل الصوت. جرب قارئاً آخر أو تحقق من الاتصال.</div>
             <div class="reciter-select">
                 <label for="reciter">القارئ:</label>
                 <select id="reciter">
-                    <option value="Alafasy_64kbps">مشاري العفاسي</option>
-                    <option value="Ghamadi_40kbps">سعد الغامدي</option>
-                    <option value="Minshawy_Murattal_128kbps">محمد صديق المنشاوي</option>
-                    <option value="Abdul_Basit_Murattal_64kbps">عبدالباسط عبدالصمد</option>
-                    <option value="Husary_64kbps">محمود خليل الحصري</option>
+                    <option value="afs">مشاري العفاسي</option>
+                    <option value="gmd">سعد الغامدي</option>
+                    <option value="minsh">محمد صديق المنشاوي</option>
+                    <option value="basit">عبدالباسط عبدالصمد</option>
+                    <option value="husr">محمود خليل الحصري</option>
                 </select>
             </div>
         </div>
@@ -410,6 +434,15 @@
             {id: 114, name: "الناس", type: "مكية", verses: 6}
         ];
 
+        // روابط MP3Quran لكل قارئ
+        const reciters = {
+            afs: { name: "مشاري العفاسي", server: "https://server8.mp3quran.net/afs/" },
+            gmd: { name: "سعد الغامدي", server: "https://server7.mp3quran.net/s_gmd/" },
+            minsh: { name: "محمد صديق المنشاوي", server: "https://server10.mp3quran.net/minsh/" },
+            basit: { name: "عبدالباسط عبدالصمد", server: "https://server7.mp3quran.net/basit/" },
+            husr: { name: "محمود خليل الحصري", server: "https://server13.mp3quran.net/husr/" }
+        };
+
         const surahList = document.getElementById('surahList');
         const searchBox = document.getElementById('searchBox');
         const audioPlayer = document.getElementById('audioPlayer');
@@ -417,11 +450,18 @@
         const nowPlayingTitle = document.getElementById('nowPlayingTitle');
         const nowPlayingMeta = document.getElementById('nowPlayingMeta');
         const reciterSelect = document.getElementById('reciter');
+        const errorMsg = document.getElementById('errorMsg');
+        const loadingMsg = document.getElementById('loadingMsg');
 
         let currentSurah = null;
 
         function pad(num) {
             return num.toString().padStart(3, '0');
+        }
+
+        function getAudioUrl(surahId, reciterKey) {
+            const reciter = reciters[reciterKey];
+            return reciter.server + pad(surahId) + ".mp3";
         }
 
         function renderSurahs(filter = '') {
@@ -431,6 +471,7 @@
             filtered.forEach(surah => {
                 const card = document.createElement('div');
                 card.className = 'surah-card' + (currentSurah && currentSurah.id === surah.id ? ' active' : '');
+                card.id = 'surah-' + surah.id;
                 card.innerHTML = `
                     <div class="surah-info">
                         <div class="surah-number">${surah.id}</div>
@@ -448,15 +489,29 @@
 
         function playSurah(surah) {
             currentSurah = surah;
-            const reciter = reciterSelect.value;
-            const url = `https://everyayah.com/data/${reciter}/${pad(surah.id)}.mp3`;
+            const reciterKey = reciterSelect.value;
+            const reciter = reciters[reciterKey];
+            const url = getAudioUrl(surah.id, reciterKey);
+
+            errorMsg.style.display = 'none';
+            loadingMsg.style.display = 'block';
 
             audioPlayer.src = url;
-            audioPlayer.play();
+
+            audioPlayer.oncanplay = () => {
+                loadingMsg.style.display = 'none';
+                audioPlayer.play();
+            };
+
+            audioPlayer.onerror = () => {
+                loadingMsg.style.display = 'none';
+                errorMsg.style.display = 'block';
+                document.getElementById('surah-' + surah.id).classList.add('error');
+            };
 
             playerSection.classList.add('active');
             nowPlayingTitle.textContent = `سورة ${surah.name}`;
-            nowPlayingMeta.textContent = `${surah.type} — ${surah.verses} آية — ${reciterSelect.options[reciterSelect.selectedIndex].text}`;
+            nowPlayingMeta.textContent = `${surah.type} — ${surah.verses} آية — ${reciter.name}`;
 
             renderSurahs(searchBox.value);
         }
