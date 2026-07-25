@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://quranaudios.com/sitemap.xml
