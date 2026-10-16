@@ -238,6 +238,33 @@
             color: #e0e1dd;
         }
 
+        .play-mode {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+
+        .mode-btn {
+            padding: 8px 14px;
+            border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.15);
+            background: rgba(255,255,255,0.05);
+            color: #e0e1dd;
+            font-family: 'Tajawal', sans-serif;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .mode-btn.on {
+            background: #e9c46a;
+            border-color: #e9c46a;
+            color: #0d1b2a;
+            font-weight: 700;
+        }
+
         .error-msg {
             text-align: center;
             color: #e76f51;
@@ -302,6 +329,11 @@
                 <p id="nowPlayingMeta"></p>
             </div>
             <audio class="audio-player" id="audioPlayer" controls preload="none"></audio>
+            <div class="play-mode" id="playMode" role="group" aria-label="بعد انتهاء السورة">
+                <button type="button" class="mode-btn" data-mode="once">⏹ إيقاف بعد السورة</button>
+                <button type="button" class="mode-btn" data-mode="repeat">🔁 تكرار السورة</button>
+                <button type="button" class="mode-btn" data-mode="next">⏭ السورة التالية تلقائياً</button>
+            </div>
             <div class="loading" id="loadingMsg">⏳ جاري تحميل السورة...</div>
             <div class="error-msg" id="errorMsg">⚠️ تعذر تحميل الصوت. جرب قارئاً آخر أو تحقق من الاتصال.</div>
             <div class="reciter-select">
@@ -507,7 +539,8 @@
             audioPlayer.onerror = () => {
                 loadingMsg.style.display = 'none';
                 errorMsg.style.display = 'block';
-                document.getElementById('surah-' + surah.id).classList.add('error');
+                const card = document.getElementById('surah-' + surah.id);
+                if (card) card.classList.add('error');
             };
 
             playerSection.classList.add('active');
@@ -516,6 +549,34 @@
 
             renderSurahs(searchBox.value);
         }
+
+        // ماذا يحدث عند انتهاء السورة: إيقاف / تكرار السورة / الانتقال للسورة التالية
+        const modeButtons = document.querySelectorAll('#playMode .mode-btn');
+        let playMode = 'once';
+        try { playMode = localStorage.getItem('quranPlayMode') || 'once'; } catch (e) {}
+
+        function setPlayMode(mode) {
+            playMode = mode;
+            modeButtons.forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
+            try { localStorage.setItem('quranPlayMode', mode); } catch (e) {}
+        }
+        modeButtons.forEach(b => b.addEventListener('click', () => setPlayMode(b.dataset.mode)));
+        setPlayMode(playMode);
+
+        audioPlayer.addEventListener('ended', () => {
+            if (!currentSurah) return;
+            if (playMode === 'repeat') {
+                audioPlayer.currentTime = 0;
+                audioPlayer.play();
+            } else if (playMode === 'next') {
+                const next = surahs.find(s => s.id === currentSurah.id + 1);
+                if (next) {
+                    playSurah(next);
+                    const card = document.getElementById('surah-' + next.id);
+                    if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
+        });
 
         reciterSelect.addEventListener('change', () => {
             if (currentSurah) {
