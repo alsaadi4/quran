@@ -529,12 +529,16 @@
             errorMsg.style.display = 'none';
             loadingMsg.style.display = 'block';
 
-            audioPlayer.src = url;
-
             audioPlayer.oncanplay = () => {
                 loadingMsg.style.display = 'none';
-                audioPlayer.play();
             };
+
+            audioPlayer.src = url;
+            audioPlayer.load();
+            // play() must be called right away (not later in oncanplay): phones (iPhone Safari)
+            // block a delayed play(), which is why the next surah loaded but did not start.
+            const p = audioPlayer.play();
+            if (p && p.catch) p.catch(() => { loadingMsg.style.display = 'none'; });
 
             audioPlayer.onerror = () => {
                 loadingMsg.style.display = 'none';
